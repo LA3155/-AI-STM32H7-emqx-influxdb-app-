@@ -117,13 +117,16 @@ void mqtt_flagtuggole(void *argument)
 
 void create_mqtt_timer(void)
 {
-    MQTT_TimeHandle = osTimerNew
-    (
-        mqtt_flagtuggole,
-        osTimerPeriodic,
-        lora_rx_buf,
-        NULL
-    );
+    if (MQTT_TimeHandle == NULL)
+    {
+        MQTT_TimeHandle = osTimerNew
+        (
+            mqtt_flagtuggole,
+            osTimerPeriodic,
+            lora_rx_buf,
+            NULL
+        );
+    }
     if(MQTT_TimeHandle != NULL)
     {
         osTimerStart(MQTT_TimeHandle,mqtt_time);
