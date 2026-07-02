@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "MQTT.h"   // 用于通知 MQTT 任务有新数据
+#include "init.h"
 
 // 存放解包后的纯净有效数据，锁定在 D3 域 SRAM4 (0x38000000)
 // BDMA 不能访问 DTCM (0x20000000)，但可以访问 SRAM4
@@ -14,10 +15,11 @@ uint8_t *lora_rx_buf = (uint8_t *)0x38000000;
 
 uint8_t *lora_raw_buf = (uint8_t *)0x38000200;
 
-uint8_t lora_flag;
-uint8_t lora_size;
 extern osMessageQueueId_t sizequeue;
 extern osMessageQueueId_t loraqueue;
+extern globaldata_t globaldata;
+
+uint32_t lora_size;
 
 lora_t lora =
 {
@@ -85,6 +87,7 @@ void lora_prase(uint8_t *data_buf, uint16_t len)
     for(i=0;i<5;i++)
     {
         lora.data[i] = ((pr[3+i*2]<<8) | pr[4+i*2])/ 10.0f;
+        globaldata.sensor_data[i] = lora.data[i];
     }
     osMessageQueuePut(loraqueue,&lora,0,0);
 

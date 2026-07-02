@@ -1,10 +1,12 @@
 #include "edge_ai_app.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "farm_ai.h"
 #include "farm_ai_data.h"
 #include "cmsis_os2.h"
 #include "MQTT.h"
+#include "init.h"
 
 static ai_handle farm_ai_handle = AI_HANDLE_NULL;
 AI_ALIGNED(4) static ai_u8 activations[AI_FARM_AI_DATA_ACTIVATIONS_SIZE];
@@ -14,8 +16,9 @@ static ai_buffer *ai_output = NULL;
 const float mean[4]  = {28.73028f, 71.50746f, 5904.59212f, 10.8009f};
 const float scale[4] = {5.96746877f, 19.9612672f, 4485.46686312f, 14.61635969f};
 extern osMessageQueueId_t loraqueue;
-
 extern threshold_t ai_threshold;
+extern globaldata_t globaldata;
+extern osEventFlagsId_t mqtt_event_flags;
 void Edge_AI_Init(void)
 {
     ai_error err;
@@ -58,15 +61,6 @@ int ai_calculate(float* input_array, float* thresholds)
     batch = ai_farm_ai_run(farm_ai_handle, ai_input, ai_output);
     if (batch != 1) return 0;
 
-    //各个预警概率
-    for(int k = 0; k < 4; k++) {
-        latest_ai_probabilities[k] = output_data[k];
-    }
-
-    // 先打印所有原始概率，方便调试观察
-    printf("[Edge AI] 概率: [正常:%.2f] [高温:%.2f] [暴雨:%.2f] [台风:%.2f]\r\n", 
-           output_data[0], output_data[1], output_data[2], output_data[3]);
-
     int final_alarm_class = 0;
     float final_alarm_prob = 0.0f;
 
@@ -78,6 +72,12 @@ int ai_calculate(float* input_array, float* thresholds)
                 final_alarm_class = i;
             }
         }
+    }
+
+    //数据存储
+    globaldata.alarm_status = final_alarm_class;
+    for(int k = 0; k < 4; k++) {
+        globaldata.probabilities[k] = output_data[k];
     }
 
     // 根据独立筛查的结果输出最终判定
@@ -99,7 +99,10 @@ void aiTask(void* argument)
             int state = ai_calculate(data,ai_thresholds);
             if(state != 0)
             {
-                
+                if(mqtt_event_flags != NULL)
+                {
+                    osEventFlagsSet(mqtt_event_flags,EVENT_FLAG_ALARM);
+                }
             }
         }
     }

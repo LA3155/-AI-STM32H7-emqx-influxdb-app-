@@ -11,6 +11,8 @@
 osMessageQueueId_t sizequeue;
 osMessageQueueId_t loraqueue;
 extern struct lora_t lora;
+osEventFlagsId_t mqtt_event_flags;
+globaldata_t globaldata;
 
 void initTask(void *argument)
 {
@@ -18,5 +20,6 @@ void initTask(void *argument)
     Edge_AI_Init();
     sizequeue = osMessageQueueNew(1, sizeof(uint16_t),NULL);
     loraqueue = osMessageQueueNew(10,sizeof(lora_t),NULL);
+    mqtt_event_flags = osEventFlagsNew(NULL);
     vTaskDelete(NULL);
 }

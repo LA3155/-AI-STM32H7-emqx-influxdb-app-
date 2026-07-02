@@ -11,6 +11,7 @@
 #include "task.h"
 #include "Edge_ai_app.h"
 #include "stdlib.h"
+#include "init.h"
 
 #define AIR780E_UART huart5
 
@@ -42,48 +43,20 @@ extern float latest_ai_probabilities[4];
 //控制主题
 char topic_ctrol[]="iot/device";
 
-//10分钟定时器上报逻辑
-osTimerId_t MQTT_TimeHandle;
-uint32_t mqtt_time = 600000;
 
 //定义函数指针
 typedef void (*messageHandler_subscribe_t)(MessageData*);
 typedef void (*mqttdata_t)(void *);
+extern globaldata_t globaldata;
+extern osEventFlagsId_t mqtt_event_flags;
 
-volatile uint8_t mqtt_flag;
-
-void MQTT_Time_CallBack(void *pr)
+void MQTT_Time_CallBack()
 {
-    uint8_t *buf = (uint8_t *)pr;
-    uint16_t raw_temp  = (buf[0] << 8) | buf[1];//温度
-    uint16_t raw_humi  = (buf[2] << 8) | buf[3];//湿度
-    uint16_t raw_light = (buf[4] << 8) | buf[5];//光照
-    uint16_t raw_press = (buf[6] << 8) | buf[7];//气压
-    uint16_t raw_wind  = (buf[8] << 8) | buf[9];//风速
+    sprintf(json_payload, "{\"temp\": %.2f, \"humi\": %.2f, \"light\": %.2f, \"press\": %.2f, \"wind\": %.2f,\"status\": %d, \"p1\": %d, \"p2\": %d, \"p3\": %d}",
+    globaldata.sensor_data[0],globaldata.sensor_data[1], globaldata.sensor_data[2], globaldata.sensor_data[4],globaldata.sensor_data[3], \
+    globaldata.alarm_status, (int)(globaldata.probabilities[1]*100),(int)(globaldata.probabilities[2]*100),(int)(globaldata.probabilities[3]*100));
 
-    int temp_int = raw_temp / 10, temp_dec = raw_temp % 10;
-    int humi_int = raw_humi / 10, humi_dec = raw_humi % 10;
-    int light_int = raw_light / 10, light_dec = raw_light % 10;
-    int press_int= raw_press / 10, press_dec = raw_press % 10;
-    int wind_int = raw_wind / 10, wind_dec = raw_wind % 10;
-
-    ai_input[0] = raw_temp / 10.0f;
-    ai_input[1] = raw_humi / 10.0f;
-    ai_input[2] = raw_light/ 10.0f;
-    ai_input[3] = raw_wind / 10.0f;
-
-    float ai_thresholds[4] = {0.0f, ai_threshold.high_temp, ai_threshold.storm, ai_threshold.hyphoon};
-    // int alarm_status = Edge_AI_Run_Prediction(ai_input, ai_thresholds);
-
-    // 提取导出的概率值，放大100倍转换为整数，安全推送给 APP 
-    int p_temp  = (int)(latest_ai_probabilities[1] * 100);
-    int p_storm = (int)(latest_ai_probabilities[2] * 100);
-    int p_wind  = (int)(latest_ai_probabilities[3] * 100);
-    
-    // sprintf(json_payload, 
-    // "{\"temp\": %d.%d, \"humi\": %d.%d, \"light\": %d.%d, \"press\": %d.%d, \"wind\": %d.%d, \"status\": %d, \"p1\": %d, \"p2\": %d, \"p3\": %d}", 
-    // temp_int, temp_dec, humi_int, humi_dec, light_int,light_dec, press_int, press_dec,wind_int, wind_dec,alarm_status,p_temp,p_storm,p_wind);
-                
+    printf("%s",json_payload);
     MQTTMessage message;
     message.qos = QOS0;             
     message.retained = 0;           
@@ -91,7 +64,7 @@ void MQTT_Time_CallBack(void *pr)
     message.id = 0;
     message.payload = (void*)json_payload;
     message.payloadlen = strlen(json_payload); 
-
+    //测试阶段不发数据
     // if (MQTTPublish(&client, "iot/environment", &message) == SUCCESS)
     // {
     //     printf("[MQTT Pub] 成功: %s\r\n", json_payload);
@@ -100,29 +73,6 @@ void MQTT_Time_CallBack(void *pr)
     // {
     //     printf("[MQTT Pub] 发送失败！\r\n");
     // }
-}
-
-void mqtt_flagtuggole(void *argument)
-{
-    mqtt_flag = 1;
-}
-
-void create_mqtt_timer(void)
-{
-    if (MQTT_TimeHandle == NULL)
-    {
-        MQTT_TimeHandle = osTimerNew
-        (
-            mqtt_flagtuggole,
-            osTimerPeriodic,
-            lora_rx_buf,
-            NULL
-        );
-    }
-    if(MQTT_TimeHandle != NULL)
-    {
-        osTimerStart(MQTT_TimeHandle,mqtt_time);
-    }
 }
 
 uint8_t Send_AT_Command_RTOS(char *cmd, char *ack, uint32_t timeout_ms)
@@ -223,16 +173,7 @@ void mqtt_tcpconnect(void)
 void mqttTask(void *argument)
 {
     Network network;
-    // char json_payload[256];
-    // ==================== 预置测试数据 ====================
-    lora_rx_buf[0] = 0x01; lora_rx_buf[1] = 0x40; //温度
-    lora_rx_buf[2] = 0x02; lora_rx_buf[3] = 0x58; //湿度
-    lora_rx_buf[4] = 0x27; lora_rx_buf[5] = 0x10; //光照
-    lora_rx_buf[6] = 0x00; lora_rx_buf[7] = 0x00; //海拔
-    lora_rx_buf[8] = 0x00; lora_rx_buf[9] = 0x0A; //风速
-    // //边缘AI初始化
-    // Edge_AI_Init();
-    
+    const uint32_t MQTT_PERIOD_MS = 600000;//10分钟事件组触发
     while (1) 
     {
         mqtt_tcpconnect();
@@ -254,18 +195,27 @@ void mqttTask(void *argument)
             osDelay(2000);
             continue; 
         }
-        // RingBuf_Clear();
         MQTTSubscribe(&client, topic_ctrol, 0, messageHandler_subscribe);//订阅iot/device主题
         printf("=== MQTT 协议握手成功!开始循环上报数据 ===\r\n");
-        create_mqtt_timer();//开启循环上报定时器
+        // create_mqtt_timer();//开启循环上报定时器
         for(;;)
         {
-            MQTTYield(&client, 50); 
-            if(mqtt_flag)
+            uint32_t flag = osEventFlagsWait(mqtt_event_flags,EVENT_FLAG_ALARM,osFlagsWaitAny,MQTT_PERIOD_MS);
+            if(flag == osFlagsErrorTimeout)
             {
+                printf("正常10分钟数据上报\r\n");
                 MQTT_Time_CallBack(lora_rx_buf);
-                mqtt_flag = 0;
             }
+            else if ((flag & 0x80000000) == 0) 
+            {
+                if (flag & EVENT_FLAG_ALARM) 
+                {
+                    printf("收到AI紧急预警抢占发送灾害报文\r\n");
+                    MQTT_Time_CallBack(lora_rx_buf);
+                }
+            }
+            
+            MQTTYield(&client, 50); 
             osDelay(50);
             if (client.isconnected == 0)
             {
