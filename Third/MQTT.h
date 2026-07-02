@@ -17,5 +17,12 @@
 uint8_t Send_AT_Command_RTOS(char *cmd, char *ack, uint32_t timeout_ms);
 void mqttTask(void *argument);
 uint8_t crc8_calc_shift(uint8_t *data, uint16_t len);
+//阈值结构体
+typedef struct
+{
+    float high_temp;
+    float storm;
+    float hyphoon;
+}threshold_t;
 
 #endif /* __MQTT_H */

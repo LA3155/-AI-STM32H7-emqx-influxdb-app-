@@ -30,6 +30,7 @@
 #include "Lora.h"
 #include "init.h"
 #include <string.h>
+#include "Edge_ai_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -142,6 +143,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   mqttTaskHandle = osThreadNew(mqttTask,NULL, &mqttTask_attributes);
+  aiTaskHandle   = osThreadNew(aiTask,NULL, &mqttTask_attributes);
   loraTaskHandle = osThreadNew(loraTask, NULL, &loraTask_attributes);
   initTaskHandle = osThreadNew(initTask, NULL, &initTask_attributes);
   

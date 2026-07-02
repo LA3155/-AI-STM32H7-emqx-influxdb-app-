@@ -13,13 +13,10 @@
 extern uint8_t *lora_rx_buf;
 extern uint8_t *lora_raw_buf;
 
-// 诊断计数器 (可通过调试器实时查看)
-extern volatile uint32_t lora_irq_count;
-extern volatile uint32_t lora_dma_ht_count;
-extern volatile uint32_t lora_dma_tc_count;
-extern volatile uint32_t lora_idle_count;
-extern volatile uint32_t lora_crc_ok_count;
-extern volatile uint32_t lora_crc_fail_count;
+typedef struct
+{
+    float data[5];
+}lora_t;
 
 // 函数声明
 void LoRa_Init(void);

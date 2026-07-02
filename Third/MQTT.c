@@ -24,13 +24,6 @@ char at_cmd_buf[128];
 char json_payload[256];
 
 //初始化阈值
-typedef struct
-{
-    float high_temp;
-    float storm;
-    float hyphoon;
-}threshold_t;
-
 threshold_t ai_threshold =
 {
     .high_temp = 0.02f,
@@ -62,7 +55,6 @@ volatile uint8_t mqtt_flag;
 void MQTT_Time_CallBack(void *pr)
 {
     uint8_t *buf = (uint8_t *)pr;
-    
     uint16_t raw_temp  = (buf[0] << 8) | buf[1];//温度
     uint16_t raw_humi  = (buf[2] << 8) | buf[3];//湿度
     uint16_t raw_light = (buf[4] << 8) | buf[5];//光照
@@ -81,16 +73,16 @@ void MQTT_Time_CallBack(void *pr)
     ai_input[3] = raw_wind / 10.0f;
 
     float ai_thresholds[4] = {0.0f, ai_threshold.high_temp, ai_threshold.storm, ai_threshold.hyphoon};
-    int alarm_status = Edge_AI_Run_Prediction(ai_input, ai_thresholds);
+    // int alarm_status = Edge_AI_Run_Prediction(ai_input, ai_thresholds);
 
     // 提取导出的概率值，放大100倍转换为整数，安全推送给 APP 
     int p_temp  = (int)(latest_ai_probabilities[1] * 100);
     int p_storm = (int)(latest_ai_probabilities[2] * 100);
     int p_wind  = (int)(latest_ai_probabilities[3] * 100);
     
-    sprintf(json_payload, 
-    "{\"temp\": %d.%d, \"humi\": %d.%d, \"light\": %d.%d, \"press\": %d.%d, \"wind\": %d.%d, \"status\": %d, \"p1\": %d, \"p2\": %d, \"p3\": %d}", 
-    temp_int, temp_dec, humi_int, humi_dec, light_int,light_dec, press_int, press_dec,wind_int, wind_dec,alarm_status,p_temp,p_storm,p_wind);
+    // sprintf(json_payload, 
+    // "{\"temp\": %d.%d, \"humi\": %d.%d, \"light\": %d.%d, \"press\": %d.%d, \"wind\": %d.%d, \"status\": %d, \"p1\": %d, \"p2\": %d, \"p3\": %d}", 
+    // temp_int, temp_dec, humi_int, humi_dec, light_int,light_dec, press_int, press_dec,wind_int, wind_dec,alarm_status,p_temp,p_storm,p_wind);
                 
     MQTTMessage message;
     message.qos = QOS0;             
@@ -100,14 +92,14 @@ void MQTT_Time_CallBack(void *pr)
     message.payload = (void*)json_payload;
     message.payloadlen = strlen(json_payload); 
 
-    if (MQTTPublish(&client, "iot/environment", &message) == SUCCESS)
-    {
-        printf("[MQTT Pub] 成功: %s\r\n", json_payload);
-    }
-    else
-    {
-        printf("[MQTT Pub] 发送失败！\r\n");
-    }
+    // if (MQTTPublish(&client, "iot/environment", &message) == SUCCESS)
+    // {
+    //     printf("[MQTT Pub] 成功: %s\r\n", json_payload);
+    // }
+    // else
+    // {
+    //     printf("[MQTT Pub] 发送失败！\r\n");
+    // }
 }
 
 void mqtt_flagtuggole(void *argument)

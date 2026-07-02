@@ -637,8 +637,6 @@ ai_i32 ai_farm_ai_forward(ai_handle network, const ai_buffer* input)
   return ai_platform_network_process(network, input, NULL);
 }
 
-
-
 #undef AI_FARM_AI_MODEL_SIGNATURE
 #undef AI_NET_OBJ_INSTANCE
 #undef AI_TOOLS_DATE_TIME

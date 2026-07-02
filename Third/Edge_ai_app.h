@@ -6,5 +6,6 @@
 void Edge_AI_Init(void);
 // 修改为接收 float 数组指针
 int Edge_AI_Run_Prediction(float* input_array, float* thresholds);
+void aiTask(void* argument);
 
 #endif
